@@ -1,7 +1,213 @@
-pipelines:
-  branches:
-    lesson-1:
-      - step:
-          name: just a simple echo!
-          script:
-            - echo "Hello world!"
+{
+    "AWSTemplateFormatVersion": "2010-09-09",
+    "Description": "",
+    "Metadata": {
+
+    },
+    "Parameters": {
+      "demovpccidr": {
+          "Description": "-",
+          "Type": "String",
+          "Default": "172.28.0.0/24"
+      },
+      "demo1cidr": {
+          "Description": "SN1 CIDR",
+          "Type": "String",
+          "Default": "172.28.0.0/28"
+      },
+      "demoaz1": {
+          "Description": "choose the AZ you want",
+          "Type": "AWS::EC2::AvailabilityZone::Name"
+
+      },
+      "demoaz2": {
+          "Description": "choose the AZ you want",
+          "Type": "AWS::EC2::AvailabilityZone::Name"
+
+      },
+      "demo2cidr": {
+          "Description": "SN2 CIDR",
+          "Type": "String",
+          "Default": "172.28.0.16/28"
+      },
+      "demoec2key": {
+          "Description": " choose the keypair ",
+          "Type": "AWS::EC2::KeyPair::KeyName"
+
+      },
+      "demoami": {
+          "Description": "choose the AMI",
+          "Type": "AWS::EC2::Image::Id"
+
+      },
+      "demoec2types": {
+          "Description": "choose the ec2 types",
+          "Type": "String",
+          "Default": "t2.micro"
+
+      }
+
+    },
+    "Mappings": {
+
+    },
+    "Conditions": {
+
+    },
+    "Resources": {
+      "demovpc": {
+        "Type": "AWS::EC2::VPC",
+        "Properties": {
+          "CidrBlock": { "Ref": "demovpccidr" },
+          "Tags": [{ "Key": "Name", "Value":  "demovpc" }]
+        }
+      },
+      "demovpcigw": {
+        "Type": "AWS::EC2::InternetGateway",
+        "Properties": {
+          "Tags": [{ "Key": "Name", "Value":  "demovpcigw" }]
+        }
+      },
+      "AttachGateway": {
+        "Type": "AWS::EC2::VPCGatewayAttachment",
+        "Properties": {
+          "VpcId": { "Ref": "demovpc" },
+          "InternetGatewayId": { "Ref": "demovpcigw" }
+        }
+      },
+      "demo1": {
+        "Type": "AWS::EC2::Subnet",
+        "Properties": {
+          "AvailabilityZone": { "Ref": "demoaz1" },
+          "MapPublicIpOnLaunch"  : "true",
+          "VpcId": { "Ref": "demovpc" },
+          "CidrBlock": { "Ref": "demo1cidr" },
+          "Tags": [{ "Key": "Name", "Value":  "demo1" }]
+        }
+      },
+      "demo2": {
+        "Type": "AWS::EC2::Subnet",
+        "Properties": {
+          "AvailabilityZone": { "Ref": "demoaz2" },
+          "VpcId": { "Ref": "demovpc" },
+          "CidrBlock": { "Ref": "demo2cidr" },
+          "Tags": [{ "Key": "Name", "Value":  "demo2" }]
+        }
+      },
+     "demopubrt": {
+        "Type": "AWS::EC2::RouteTable",
+        "Properties": {
+          "VpcId": { "Ref": "demovpc" },
+          "Tags": [{ "Key": "Name", "Value":  "demopubrt" }]
+        }
+      },
+      "demopubrtass": {
+        "Type": "AWS::EC2::SubnetRouteTableAssociation",
+        "Properties": {
+          "SubnetId": { "Ref": "demo1" },
+          "RouteTableId": { "Ref": "demopubrt" }
+        }
+      },
+      "demoroute": {
+        "Type": "AWS::EC2::Route",
+        "Properties": {
+          "RouteTableId": { "Ref": "demopubrt" },
+          "DestinationCidrBlock": "0.0.0.0/0",
+          "GatewayId": { "Ref": "demovpcigw" }
+        }
+        },
+        "demoserversg" : {
+          "Type" : "AWS::EC2::SecurityGroup",
+          "Properties" : {
+            "GroupDescription" : "-",
+            "SecurityGroupIngress" : [
+              {
+                "IpProtocol" : "tcp",
+                "FromPort" : 22,
+                "ToPort" : 22,
+                "CidrIp" : "0.0.0.0/0"
+              }
+            ],
+            "VpcId" : { "Ref": "demovpc" },
+            "Tags" :  [{ "Key": "Name", "Value":  "demoserversg" }]
+          }
+        },
+      "demoserver": {
+          "Type": "AWS::EC2::Instance",
+          "Properties": {
+              "KeyName": { "Ref": "demoec2key" },
+              "SubnetId": { "Ref": "demo1" },
+              "ImageId": { "Ref": "demoami" },
+              "InstanceType": { "Ref": "demoec2types" },
+              "Monitoring": "true",
+              "SecurityGroupIds" : [{ "Ref": "demoserversg" }],
+              "Tags": [
+                  {
+                      "Key": "Name",
+                      "Value": "demoserver"
+                  }
+              ],
+              "UserData": {
+                  "Fn::Base64": {
+                      "Fn::Join": [
+                          "",
+                          [
+                              "#!/bin/bash -ex",
+                              "-"
+                          ]
+                      ]
+                  }
+              }
+     }
+   },
+      "demoapp1": {
+          "Type": "AWS::EC2::Instance",
+          "Properties": {
+              "KeyName": { "Ref": "demoec2key" },
+              "SubnetId":{ "Ref": "demo2" },
+              "ImageId": { "Ref": "demoami" },
+              "InstanceType": { "Ref": "demoec2types" },
+              "Monitoring": "true",
+              "SecurityGroupIds" : [{ "Ref": "demoserversg" }],
+              "Tags": [
+                  {
+                      "Key": "Name",
+                      "Value": "demoapp1"
+                  }
+              ],
+              "UserData": {
+                  "Fn::Base64": {
+                      "Fn::Join": [
+                          "",
+                          [
+                              "#!/bin/bash -ex",
+                              "-"
+                          ]
+                      ]
+                  }
+              }
+      }
+    },
+    "CPUAlarm" : {
+  "Type" : "AWS::CloudWatch::Alarm",
+  "Properties" : {
+    "AlarmDescription" : "CPU alarm for my instance",
+    "MetricName" : "CPUUtilization",
+    "Namespace" : "AWS/EC2",
+    "Statistic" : "Average",
+    "Period" : "60",
+    "EvaluationPeriods" : "3",
+    "Threshold" : "90",
+    "ComparisonOperator" : "GreaterThanThreshold",
+    "Dimensions" : [ {
+      "Name" : "demoserver",
+      "Value" : "demoserver"
+    } ]
+  }
+}
+
+     },
+    "Outputs": {
+
+    }
+  }
